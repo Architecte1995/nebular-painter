@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nebular Painter — Cathédrale 1995</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #020205; color: #C9A227; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; touch-action: none; user-select: none; }
+
+  #viewport { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+  #menuWrap {
+    position: absolute; top: 10px; left: 8px; z-index: 30;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  }
+  #btnMenu {
+    background: rgba(201,162,39,0.12); border: 1px solid rgba(201,162,39,0.5);
+    color: #C9A227; width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; cursor: pointer; backdrop-filter: blur(4px);
+    transition: all 0.15s ease;
+  }
+  #btnMenu:hover { background: rgba(201,162,39,0.3); }
+  #menuPanel {
+    display: none; flex-direction: column; gap: 6px;
+    background: rgba(2,2,5,0.96); border: 1px solid rgba(201,162,39,0.4);
+    border-radius: 10px; padding: 8px; min-width: 140px;
+    box-shadow: 0 4px 20px rgba(201,162,39,0.15);
+  }
+  #menuPanel.visible { display: flex; }
+  #menuPanel button {
+    background: rgba(201,162,39,0.08); border: 1px solid rgba(201,162,39,0.35);
+    color: #C9A227; padding: 7px 10px; border-radius: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 500; text-align: left;
+    display: flex; align-items: center; gap: 6px;
+  }
+  #menuPanel button:hover { background: rgba(201,162,39,0.22); }
+
+  #drawZone {
+    position: absolute; top: 10px; bottom: 148px; left: 6px; right: 6px;
+    z-index: 5; border-radius: 6px;
+    border: 1px solid rgba(201,162,39,0.12);
+    box-shadow: inset 0 0 100px rgba(201,162,39,0.04), 0 0 0 1px rgba(201,162,39,0.06);
+    background: radial-gradient(ellipse at center, rgba(201,162,39,0.015) 0%, transparent 70%);
+    overflow: hidden; touch-action: none;
+  }
+  #drawZone canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+  #mainCanvas { z-index: 5; pointer-events: none; }
+
+  #ui {
+    position: absolute; bottom: 0; left: 0; width: 100%; z-index: 30;
+    background: linear-gradient(to top, rgba(2,2,5,0.98) 0%, rgba(2,2,5,0.85) 55%, transparent 100%);
+    padding: 10px 8px 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    pointer-events: auto;
+  }
+  .row { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; max-width: 900px; }
+
+  button {
+    background: rgba(201,162,39,0.08); border: 1px solid rgba(201,162,39,0.45);
+    color: #C9A227; padding: 5px 10px; border-radius: 50px; cursor: pointer;
+    font-size: 11px; font-weight: 500; transition: all 0.15s ease; backdrop-filter: blur(2px);
+  }
+  button:hover { background: rgba(201,162,39,0.22); border-color: #C9A227; }
+  button.active { background: #C9A227; color: #020205; border-color: #C9A227; font-weight: 700; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; background: none; }
+  .swatch.active { border-color: #fff; transform: scale(1.18); box-shadow: 0 0 10px currentColor; }
+
+  input[type="range"] { accent-color: #C9A227; width: 80px; cursor: pointer; height: 3px; }
+  label { font-size: 11px; color: #C9A227; display: flex; align-items: center; gap: 5px; white-space: nowrap; opacity: 0.9; }
+
+  .panel {
+    display: none; position: absolute;
+    bottom: 148px; left: 50%; transform: translateX(-50%);
+    background: rgba(2,2,5,0.96);
+    border: 1px solid rgba(201,162,39,0.35);
+    border-radius: 12px;
+    padding: 14px 16px;
+    flex-direction: column; gap: 12px;
+    min-width: 240px;
+    box-shadow: 0 -4px 24px rgba(201,162,39,0.15);
+    z-index: 25;
+  }
+  .panel.visible { display: flex; }
+
+  #toast {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(201,162,39,0.12); border: 1px solid rgba(201,162,39,0.5);
+    color: #C9A227; padding: 7px 16px; border-radius: 50px;
+    font-size: 12px; opacity: 0; transition: opacity 0.4s;
+    pointer-events: none; z-index: 40; letter-spacing: 0.04em;
+  }
+  #toast.show { opacity: 1; }
+
+  .sep { width: 1px; height: 18px; background: rgba(201,162,39,0.25); margin: 0 3px; }
+</style>
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+
+<div id="viewport">
+  <div id="menuWrap">
+    <div id="btnMenu">☰</div>
+    <div id="menuPanel">
+      <button id="btnImport">📁 Importer</button>
+      <button id="btnExport">⬇ PNG</button>
+    </div>
+  </div>
+
+  <div id="drawZone">
+    <canvas id="layer0" class="layer"></canvas>
+    <canvas id="layer1" class="layer"></canvas>
+    <canvas id="layer2" class="layer"></canvas>
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="ui">
+    <div class="row" id="modeRow">
+      <button data-mode="normal" class="active">Pinceau</button>
+      <button data-mode="fractal">Fractal</button>
+      <button data-mode="symmetry">Rosace</button>
+      <button data-mode="kaléido">Kaléido</button>
+      <button data-mode="mandala">Mandala</button>
+      <button data-mode="particles">Nébuleuse</button>
+      <button data-mode="ink">Ink Bleed</button>
+      <button data-mode="orbital">Orbital</button>
+    </div>
+
+    <div class="row" id="symRow" style="display:none;">
+      <span style="font-size:11px;opacity:0.7;">Axes</span>
+      <button data-sym="1" class="active">1</button>
+      <button data-sym="3">3</button>
+      <button data-sym="4">4</button>
+      <button data-sym="6">6</button>
+      <button data-sym="8">8</button>
+      <button data-sym="12">12</button>
+    </div>
+
+    <div class="row" id="ctrlRow">
+      <button id="btnPalette">Palette</button>
+      <div class="sep"></div>
+      <label>Taille <input type="range" id="sizeSlider" min="1" max="50" value="8"></label>
+      <div class="sep"></div>
+      <button id="btnUndo">↩ Undo</button>
+      <button id="btnClear">✕ Effacer</button>
+      <button id="btnConstellation">✦ Constellation</button>
+      <button id="btnRandom">🌌 Aléatoire</button>
+    </div>
+  </div>
+
+  <div id="fractalPanel" class="panel">
+    <label>Itérations <input type="range" id="juliaIter" min="1" max="50" value="18"></label>
+    <label>Re(c) <input type="range" id="juliaCr" min="-100" max="100" value="-70"></label>
+    <label>Im(c) <input type="range" id="juliaCi" min="-100" max="100" value="27"></label>
+  </div>
+
+  <div id="palettePanel" class="panel">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;" id="paletteSwatches"></div>
+    <label style="justify-content:center;margin-top:4px;">Custom <input type="color" id="colorPicker" value="#C9A227"></label>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none">
+
+<script>
+/* =========================================================
+   NEBULAR PAINTER V5 — Cathédrale 1995
+   + Kaléido (miroir axial) & Mandala (toile polygonale)
+   − GIF
+   Auteurs: Architecte1995 & Kimi K 2.6
+   ========================================================= */
+
+/* --- CANVAS --- */
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+const drawZone = document.getElementById('drawZone');
+const layers = [document.getElementById('layer0'), document.getElementById('layer1'), document.getElementById('layer2')];
+const mainCanvas = document.getElementById('mainCanvas');
+const ctxs = layers.map(c => c.getContext('2d', { alpha: true }));
+const mainCtx = mainCanvas.getContext('2d', { alpha: false });
+
+function resize() {
+  const w = drawZone.clientWidth, h = drawZone.clientHeight;
+  [mainCanvas, ...layers].forEach(c => { c.width = w * dpr; c.height = h * dpr; c.style.width = w + 'px'; c.style.height = h + 'px'; });
+  ctxs.forEach(ctx => ctx.setTransform(dpr, 0, 0, dpr, 0, 0));
+  mainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  composite();
+}
+window.addEventListener('resize', resize);
+setTimeout(resize, 0);
+
+/* --- STATE --- */
+const state = {
+  mode: 'normal', symmetry: 1, color: '#C9A227', size: 8,
+  activeLayer: 1, drawing: false, startPos: null, lastPos: null,
+  points: [], particles: [], julia: { iter: 18, cr: -0.7, ci: 0.27 }
+};
+const undoStacks = [[], [], []];
+function saveUndo(layerIdx) {
+  const c = layers[layerIdx];
+  const img = ctxs[layerIdx].getImageData(0, 0, c.width, c.height);
+  undoStacks[layerIdx].push(img);
+  if (undoStacks[layerIdx].length > 20) undoStacks[layerIdx].shift();
+}
+function undo() {
+  const stack = undoStacks[state.activeLayer];
+  if (stack.length === 0) { toast('Rien à annuler'); return; }
+  ctxs[state.activeLayer].putImageData(stack.pop(), 0, 0);
+  composite();
+}
+
+/* --- PERLIN --- */
+const perm = new Uint8Array(512), p = new Uint8Array(256);
+for (let i = 0; i < 256; i++) p[i] = i;
+for (let i = 255; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; }
+for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(t, a, b) { return a + t * (b - a); }
+function grad(hash, x, y) { const h = hash & 3; const u = h < 2 ? x : y, v = h < 2 ? y : x; return ((h & 1) ? -u : u) + ((h & 2) ? -2 * v : 2 * v); }
+function noise(x, y) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  x -= Math.floor(x); y -= Math.floor(y);
+  const u = fade(x), v = fade(y);
+  const A = perm[X] + Y, B = perm[X + 1] + Y;
+  return lerp(v, lerp(u, grad(perm[A], x, y), grad(perm[B], x - 1, y)), lerp(u, grad(perm[A + 1], x, y - 1), grad(perm[B + 1], x - 1, y - 1)));
+}
+
+/* --- PALETTE CATHÉDRALE --- */
+const palette = [
+  { name: 'Or — Soleil', hex: '#C9A227' },
+  { name: 'Vert — Germain', hex: '#27AE60' },
+  { name: 'Rouge — Mersenne', hex: '#E74C3C' },
+  { name: 'Violet — Fermat', hex: '#9B59B6' },
+  { name: 'Turquoise — Heegner', hex: '#1ABC9C' },
+  { name: 'Rose — Palindrome', hex: '#FF69B4' },
+  { name: 'Bleu — Safe', hex: '#5DADE2' },
+  { name: 'Perle — Composites', hex: '#E8E8E8' },
+];
+const paletteSwatches = document.getElementById('paletteSwatches');
+palette.forEach((c, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'swatch' + (i === 0 ? ' active' : '');
+  btn.style.backgroundColor = c.hex; btn.title = c.name;
+  btn.onclick = () => {
+    state.color = c.hex;
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('colorPicker').value = c.hex;
+  };
+  paletteSwatches.appendChild(btn);
+});
+document.getElementById('colorPicker').addEventListener('input', e => {
+  state.color = e.target.value;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+});
+
+/* --- UTILS --- */
+function getPos(e) {
+  const rect = drawZone.getBoundingClientRect();
+  const cx = (e.clientX ?? e.touches?.[0]?.clientX ?? 0);
+  const cy = (e.clientY ?? e.touches?.[0]?.clientY ?? 0);
+  return { x: cx - rect.left, y: cy - rect.top };
+}
+function hexToRgb(hex) { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+function composite() {
+  const w = drawZone.clientWidth, h = drawZone.clientHeight;
+  mainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  mainCtx.globalCompositeOperation = 'source-over';
+  mainCtx.fillStyle = '#020205'; mainCtx.fillRect(0, 0, w, h);
+  mainCtx.globalCompositeOperation = 'screen';
+  layers.forEach(c => mainCtx.drawImage(c, 0, 0, w, h));
+  mainCtx.globalCompositeOperation = 'source-over';
+}
+
+/* --- SYMMETRIES --- */
+function symmetryPoints(x, y, cx, cy, segments) {
+  if (segments <= 1) return [{x, y}];
+  const dx = x - cx, dy = y - cy, angle = Math.atan2(dy, dx), dist = Math.sqrt(dx*dx+dy*dy);
+  const pts = [];
+  for (let i = 0; i < segments; i++) {
+    const a = angle + (Math.PI * 2 * i) / segments;
+    pts.push({ x: cx + Math.cos(a) * dist, y: cy + Math.sin(a) * dist });
+  }
+  return pts;
+}
+
+/* Kaléido : chaque segment + son miroir axial → 2× traits */
+function kaléidoPoints(x, y, cx, cy, segments) {
+  const dx = x - cx, dy = y - cy;
+  const angle = Math.atan2(dy, dx);
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const pts = [];
+  for (let i = 0; i < segments; i++) {
+    const axis = (Math.PI * 2 * i) / segments;
+    pts.push({ x: cx + Math.cos(angle + axis) * dist, y: cy + Math.sin(angle + axis) * dist });
+    const refl = 2 * axis - angle;
+    pts.push({ x: cx + Math.cos(refl) * dist, y: cy + Math.sin(refl) * dist });
+  }
+  return pts;
+}
+
+/* --- BRUSHES --- */
+function setupCtx(ctx) {
+  ctx.strokeStyle = state.color; ctx.fillStyle = state.color; ctx.lineWidth = state.size;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const rgb = hexToRgb(state.color);
+  ctx.shadowBlur = state.size * 1.5; ctx.shadowColor = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.55)`;
+}
+function drawLine(ctx, x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+
+function drawJuliaStamp(cx, cy) {
+  const ctx = ctxs[state.activeLayer];
+  const s = Math.max(state.size, 4);
+  const tmp = document.createElement('canvas'); tmp.width = s*2; tmp.height = s*2;
+  const tctx = tmp.getContext('2d');
+  const img = tctx.createImageData(s*2, s*2), data = img.data;
+  const cr = state.julia.cr, ci = state.julia.ci, maxIter = state.julia.iter;
+  const rgb = hexToRgb(state.color);
+  for (let py = 0; py < s*2; py++) for (let px = 0; px < s*2; px++) {
+    let zx = (px - s) / (s * 0.6), zy = (py - s) / (s * 0.6), n = 0;
+    for (; n < maxIter && zx*zx+zy*zy < 4; n++) { const xt = zx*zx - zy*zy + cr; zy = 2*zx*zy + ci; zx = xt; }
+    if (n > 1) { const a = (n/maxIter)*180; const idx = (py*s*2+px)*4; data[idx]=rgb[0]; data[idx+1]=rgb[1]; data[idx+2]=rgb[2]; data[idx+3]=a; }
+  }
+  tctx.putImageData(img, 0, 0);
+  ctx.globalAlpha = 0.8; ctx.drawImage(tmp, cx-s, cy-s); ctx.globalAlpha = 1;
+}
+function drawInk(x1, y1, x2, y2) {
+  const ctx = ctxs[state.activeLayer], steps = Math.max(1, Math.hypot(x2-x1,y2-y1)*1.5);
+  const rgb = hexToRgb(state.color);
+  for (let i = 0; i <= steps; i++) {
+    const t = i/steps, bx = x1+(x2-x1)*t, by = y1+(y2-y1)*t;
+    const n = noise(bx*0.02, by*0.02+performance.now()*0.0001);
+    const nx = bx + n*state.size*2, ny = by + noise(bx*0.02+100, by*0.02)*state.size*2;
+    ctx.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.14)`;
+    ctx.beginPath(); ctx.arc(nx, ny, state.size*(0.5+n*0.5), 0, Math.PI*2); ctx.fill();
+  }
+}
+function drawOrbital(cx, cy, x, y) {
+  const ctx = ctxs[state.activeLayer], dx = x-cx, dy = y-cy, dist = Math.hypot(dx,dy), angle = Math.atan2(dy,dx);
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(angle);
+  ctx.strokeStyle = state.color; ctx.lineWidth = Math.max(1, state.size*0.3);
+  ctx.shadowBlur = state.size; ctx.shadowColor = state.color; ctx.globalAlpha = 0.4;
+  ctx.beginPath(); ctx.ellipse(0,0,dist,dist*0.6,0,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.restore();
+}
+function emitParticles(x, y, count) {
+  const rgb = hexToRgb(state.color);
+  for (let i = 0; i < count; i++) state.particles.push({
+    x: x+(Math.random()-0.5)*state.size, y: y+(Math.random()-0.5)*state.size,
+    vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2,
+    life: 1.0, decay: 0.005+Math.random()*0.02,
+    size: Math.random()*state.size*0.8+1, r: rgb[0], g: rgb[1], b: rgb[2]
+  });
+}
+function updateParticles() {
+  if (state.particles.length === 0) return;
+  const ctx = ctxs[state.activeLayer];
+  for (let i = state.particles.length-1; i>=0; i--) {
+    const p = state.particles[i]; p.x+=p.vx; p.y+=p.vy; p.life-=p.decay;
+    if (p.life<=0) { state.particles.splice(i,1); continue; }
+    ctx.globalAlpha = p.life*0.28; ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* --- DRAW EVENTS --- */
+function onDown(e) {
+  e.preventDefault(); state.drawing = true;
+  const pos = getPos(e); state.startPos = pos; state.lastPos = pos;
+  saveUndo(state.activeLayer); state.points.push(pos);
+  if (state.points.length > 200) state.points.shift();
+  if (state.mode === 'fractal') drawJuliaStamp(pos.x, pos.y);
+  if (state.mode === 'particles') emitParticles(pos.x, pos.y, 10);
+}
+function onMove(e) {
+  if (!state.drawing) return; e.preventDefault();
+  const pos = getPos(e), ctx = ctxs[state.activeLayer];
+  const cx = state.startPos.x, cy = state.startPos.y;
+
+  if (state.mode === 'normal') {
+    setupCtx(ctx); drawLine(ctx, state.lastPos.x, state.lastPos.y, pos.x, pos.y);
+  }
+  else if (state.mode === 'symmetry') {
+    setupCtx(ctx);
+    const segs = state.symmetry;
+    const pF = symmetryPoints(state.lastPos.x, state.lastPos.y, cx, cy, segs);
+    const pT = symmetryPoints(pos.x, pos.y, cx, cy, segs);
+    for (let i = 0; i < pF.length; i++) drawLine(ctx, pF[i].x, pF[i].y, pT[i].x, pT[i].y);
+  }
+  else if (state.mode === 'kaléido') {
+    setupCtx(ctx);
+    const segs = state.symmetry;
+    const pF = kaléidoPoints(state.lastPos.x, state.lastPos.y, cx, cy, segs);
+    const pT = kaléidoPoints(pos.x, pos.y, cx, cy, segs);
+    for (let i = 0; i < pF.length; i++) drawLine(ctx, pF[i].x, pF[i].y, pT[i].x, pT[i].y);
+  }
+  else if (state.mode === 'mandala') {
+    setupCtx(ctx);
+    const segs = state.symmetry;
+    const pF = symmetryPoints(state.lastPos.x, state.lastPos.y, cx, cy, segs);
+    const pT = symmetryPoints(pos.x, pos.y, cx, cy, segs);
+    for (let i = 0; i < pF.length; i++) drawLine(ctx, pF[i].x, pF[i].y, pT[i].x, pT[i].y);
+    ctx.globalAlpha = 0.25; ctx.lineWidth = Math.max(1, state.size * 0.4);
+    for (let i = 0; i < pT.length; i++) {
+      const next = pT[(i + 1) % pT.length];
+      ctx.beginPath(); ctx.moveTo(pT[i].x, pT[i].y); ctx.lineTo(next.x, next.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(pT[i].x, pT[i].y); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  else if (state.mode === 'fractal') {
+    if (Math.hypot(pos.x-state.lastPos.x, pos.y-state.lastPos.y) > state.size*0.5) { drawJuliaStamp(pos.x, pos.y); state.lastPos = pos; }
+  }
+  else if (state.mode === 'ink') drawInk(state.lastPos.x, state.lastPos.y, pos.x, pos.y);
+  else if (state.mode === 'orbital') drawOrbital(cx, cy, pos.x, pos.y);
+  else if (state.mode === 'particles') emitParticles(pos.x, pos.y, 3);
+
+  state.lastPos = pos; state.points.push(pos);
+  if (state.points.length > 200) state.points.shift();
+  composite();
+}
+function onUp(e) { state.drawing = false; state.startPos = null; state.lastPos = null; composite(); }
+
+drawZone.addEventListener('pointerdown', onDown);
+drawZone.addEventListener('pointermove', onMove);
+window.addEventListener('pointerup', onUp);
+drawZone.addEventListener('touchstart', onDown, {passive:false});
+drawZone.addEventListener('touchmove', onMove, {passive:false});
+window.addEventListener('touchend', onUp);
+
+function loop() {
+  if (state.mode === 'particles' && state.particles.length > 0) { updateParticles(); composite(); }
+  requestAnimationFrame(loop);
+}
+loop();
+
+/* --- UI CONTROLS --- */
+const symModes = ['symmetry', 'kaléido', 'mandala'];
+document.querySelectorAll('#modeRow button').forEach(btn => {
+  btn.onclick = () => {
+    state.mode = btn.dataset.mode;
+    document.querySelectorAll('#modeRow button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('symRow').style.display = symModes.includes(state.mode) ? 'flex' : 'none';
+    document.getElementById('fractalPanel').classList.toggle('visible', state.mode === 'fractal');
+  };
+});
+document.querySelectorAll('#symRow button').forEach(btn => {
+  btn.onclick = () => {
+    state.symmetry = parseInt(btn.dataset.sym);
+    document.querySelectorAll('#symRow button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+document.getElementById('sizeSlider').addEventListener('input', e => state.size = parseInt(e.target.value));
+
+let paletteVisible = false;
+document.getElementById('btnPalette').onclick = () => {
+  paletteVisible = !paletteVisible;
+  document.getElementById('palettePanel').classList.toggle('visible', paletteVisible);
+  document.getElementById('fractalPanel').classList.remove('visible');
+  document.getElementById('menuPanel').classList.remove('visible');
+};
+
+['juliaIter','juliaCr','juliaCi'].forEach(id => {
+  document.getElementById(id).addEventListener('input', e => {
+    const v = parseInt(e.target.value);
+    if (id === 'juliaIter') state.julia.iter = v;
+    if (id === 'juliaCr') state.julia.cr = v / 100;
+    if (id === 'juliaCi') state.julia.ci = v / 100;
+  });
+});
+
+document.getElementById('btnUndo').onclick = undo;
+document.getElementById('btnClear').onclick = () => {
+  saveUndo(state.activeLayer);
+  const w = drawZone.clientWidth, h = drawZone.clientHeight;
+  ctxs[state.activeLayer].clearRect(0, 0, w, h);
+  composite();
+};
+
+document.getElementById('btnConstellation').onclick = () => {
+  if (state.points.length < 2) { toast('Dessinez d\'abord'); return; }
+  const ctx = ctxs[2]; saveUndo(2);
+  ctx.strokeStyle = '#C9A227'; ctx.lineWidth = 1; ctx.shadowBlur = 4; ctx.shadowColor = '#C9A227';
+  ctx.beginPath(); ctx.moveTo(state.points[0].x, state.points[0].y);
+  for (let i = 1; i < state.points.length; i++) ctx.lineTo(state.points[i].x, state.points[i].y);
+  ctx.stroke();
+  ctx.beginPath();
+  for (let i = 0; i < state.points.length; i++) for (let j = i+1; j < state.points.length; j++) {
+    const d = Math.hypot(state.points[i].x-state.points[j].x, state.points[i].y-state.points[j].y);
+    if (d < 80) { ctx.moveTo(state.points[i].x, state.points[i].y); ctx.lineTo(state.points[j].x, state.points[j].y); }
+  }
+  ctx.globalAlpha = 0.35; ctx.stroke(); ctx.globalAlpha = 1;
+  state.points = []; composite(); toast('Constellation scellée');
+};
+
+document.getElementById('btnRandom').onclick = () => {
+  const ctx = ctxs[0]; saveUndo(0);
+  const w = drawZone.clientWidth, h = drawZone.clientHeight;
+  const cx = Math.random()*w, cy = Math.random()*h, r = Math.max(w,h)*0.8;
+  const grad = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+  const c1 = palette[Math.floor(Math.random()*palette.length)].hex;
+  const c2 = palette[Math.floor(Math.random()*palette.length)].hex;
+  grad.addColorStop(0,c1); grad.addColorStop(0.5,c2); grad.addColorStop(1,'transparent');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
+  const img = ctx.getImageData(0,0,w*dpr,h*dpr), d = img.data;
+  const offX = Math.random()*1000, offY = Math.random()*1000;
+  for (let y = 0; y < h*dpr; y += 4) for (let x = 0; x < w*dpr; x += 4) {
+    const n = noise((x+offX)*0.005, (y+offY)*0.005), v = Math.floor(n*55);
+    for (let dy = 0; dy < 4 && y+dy < h*dpr; dy++) for (let dx = 0; dx < 4 && x+dx < w*dpr; dx++) {
+      const idx = ((y+dy)*w*dpr + (x+dx))*4; d[idx]+=v; d[idx+1]+=v; d[idx+2]+=v; d[idx+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  for (let i = 0; i < 300; i++) {
+    const sx = Math.random()*w, sy = Math.random()*h, r = Math.random()*1.5;
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.8})`;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
+  }
+  composite(); toast('Nébuleuse générée');
+};
+
+/* --- MENU ÉDITION --- */
+const menuPanel = document.getElementById('menuPanel');
+document.getElementById('btnMenu').onclick = (e) => {
+  e.stopPropagation();
+  const visible = menuPanel.classList.contains('visible');
+  closeAllPanels();
+  if (!visible) menuPanel.classList.add('visible');
+};
+function closeAllPanels() {
+  menuPanel.classList.remove('visible');
+  document.getElementById('palettePanel').classList.remove('visible');
+  document.getElementById('fractalPanel').classList.remove('visible');
+  paletteVisible = false;
+}
+drawZone.addEventListener('pointerdown', closeAllPanels);
+
+/* --- IMPORT --- */
+const fileInput = document.getElementById('fileInput');
+document.getElementById('btnImport').onclick = () => { fileInput.click(); closeAllPanels(); };
+fileInput.onchange = (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const img = new Image();
+    img.onload = () => {
+      const ctx = ctxs[0]; saveUndo(0);
+      const w = drawZone.clientWidth, h = drawZone.clientHeight;
+      const scale = Math.max(w/img.width, h/img.height);
+      const dw = img.width*scale, dh = img.height*scale;
+      ctx.drawImage(img, (w-dw)/2, (h-dh)/2, dw, dh);
+      composite(); toast('Image importée');
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
+/* --- EXPORT PNG --- */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+}
+document.getElementById('btnExport').onclick = () => {
+  closeAllPanels(); composite();
+  const dataUrl = mainCanvas.toDataURL('image/png');
+  fetch(dataUrl).then(r => r.blob()).then(blob => {
+    downloadBlob(blob, 'nebularpainter_' + Date.now() + '.png');
+    toast('PNG exporté');
+  });
+};
+
+/* --- FULLSCREEN --- */
+let lastTap = 0;
+drawZone.addEventListener('touchend', e => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  }
+  lastTap = now;
+});
+
+toast('NEBULAR PAINTER — Toucher la feuille pour forger');
+</script>
+
+<!-- Cathédrale 1995 — © 2026 Architecte1995 & Kimi K 2.6 | MIT License -->
+</body>
+</html>
